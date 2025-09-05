@@ -56,14 +56,26 @@ export class BotService {
       firstName: ctx.from!.first_name,
       lastName: ctx.from!.last_name,
     };
+    const decks = await this.deckService.findByTelegramId(telegramId);
+
+    if (decks.length === 0) {
+      await ctx.reply(
+        '❌ You don\'t have any decks yet!\nPlease create a deck first.',
+        Markup.keyboard([['📦 New Deck'], ['⬅️ Back to Main Menu']]).resize()
+      );
+      return;
+    }
 
     await this.userService.findOrCreate(telegramId, userData);
     this.clearSession(telegramId);
 
-    // await ctx.reply(
-    //   '🔍 Browse Decks:\nSelect a deck to manage:',
-    //   Markup.keyboard(deckButtons).resize()
-    // );
+    const deckButtons = decks.map(deck => [`📚 ${deck.name}`]);
+    deckButtons.push(['❌ Cancel']);
+
+    await ctx.reply(
+      '🔍 Browse Decks:\nSelect a deck to manage:',
+      Markup.keyboard(deckButtons).resize()
+    );
 
     const session = this.getSession(telegramId);
     session.step = 'browsing_decks';

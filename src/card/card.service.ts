@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import mongoose, { Model, Types } from 'mongoose';
 import { Card, CardDocument, CardStatus } from './schemas/card.schema';
 
 @Injectable()
@@ -123,28 +123,49 @@ export class CardService {
   /**
    * Get card statistics for a deck
    */
-  async getCardStats(deckId: string): Promise<{
-    total: number;
-    new: number;
-    learning: number;
-    young: number;
-    mature: number;
-  }> {
-    const [total, newCards, learning, young, mature] = await Promise.all([
-      this.cardModel.countDocuments({ deckId }),
-      this.cardModel.countDocuments({ deckId, status: CardStatus.NEW }),
-      this.cardModel.countDocuments({ deckId, status: CardStatus.LEARNING }),
-      this.cardModel.countDocuments({ deckId, status: CardStatus.YOUNG }),
-      this.cardModel.countDocuments({ deckId, status: CardStatus.MATURE }),
+ async getCardStats(deckId: string): Promise<any> {
+    const objectId = new mongoose.Types.ObjectId(deckId);
+
+    const stats = await this.cardModel.aggregate([
+      { $match: { deckId: objectId } },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 }
+        }
+      }
     ]);
 
-    return {
-      total,
-      new: newCards,
-      learning,
-      young,
-      mature,
+    const formattedStats = {
+      total: 0,
+      new: 0,
+      learning: 0,
+      young: 0,
+      mature: 0,
     };
+
+    stats.forEach(stat => {
+      formattedStats.total += stat.count;
+      switch (stat._id) {
+        case CardStatus.NEW:
+          formattedStats.new = stat.count;
+          break;
+        case CardStatus.LEARNING:
+          formattedStats.learning = stat.count;
+          break;
+        case CardStatus.YOUNG:
+          formattedStats.young = stat.count;
+          break;
+        case CardStatus.MATURE:
+          formattedStats.mature = stat.count;
+          break;
+      }
+    });
+
+    // Agar siz statuslarni emas, boshqa maydonlarni hisoblayotgan bo'lsangiz, o'zgartiring.
+    // Yuqoridagi misolda kartalarda 'status' maydoni bor deb faraz qilingan.
+
+    return formattedStats;
   }
 
   /**

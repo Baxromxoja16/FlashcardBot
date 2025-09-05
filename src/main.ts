@@ -6,7 +6,7 @@ import 'dotenv/config';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Enable validation pipes globally
+  /// Enable validation pipes globally
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

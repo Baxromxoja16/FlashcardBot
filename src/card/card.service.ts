@@ -32,7 +32,7 @@ export class CardService {
   /**
    * Find all cards in a deck
    */
-  async findByDeckId(deckId: string): Promise<CardDocument[]> {
+  async findByDeckId(deckId: Types.ObjectId): Promise<CardDocument[]> {
     return this.cardModel.find({ deckId }).sort({ createdAt: -1 });
   }
 

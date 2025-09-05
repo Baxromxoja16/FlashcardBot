@@ -81,10 +81,55 @@ export class BotService {
     session.step = 'browsing_decks';
   }
 
+    /**
+   * Handle Browse menu
+   */
+ async handleBrowse(ctx: Context): Promise<void> {
+  const telegramId = ctx.from!.id;
+  const decks = await this.deckService.findByTelegramId(telegramId);
+  this.clearSession(telegramId);
+
+  if (decks.length === 0) {
+    await ctx.reply(
+      '📚 Hali hech qanday deck yaratilmagan!\nBirinchi deckingizni yaratish uchun boshlang.',
+      this.getMainMenuKeyboard()
+    );
+    return;
+  }
+
+  // Deck tugmalarini yaratish
+  const deckButtons: string[][] = [];
+  let message = '🔍 Mavjud Decklar:\n\n';
+
+  // Har bir deck uchun ma'lumot va tugma yaratish
+  for (let i = 0; i < decks.length; i++) {
+    const deck = decks[i];
+    const stats = await this.cardService.getCardStats((deck as any)._id.toString());
+    
+    message += `${i + 1}. 📂 ${deck.name}\n`;
+    message += `   📊 Kartalar: ${stats.total}\n`;
+    message += `   🆕 Yangi: ${stats.new} | 📚 O'rganilayotgan: ${stats.learning}\n`;
+    message += `   🎯 Yosh: ${stats.young} | ⭐ O'rganilgan: ${stats.mature}\n\n`;
+    
+    deckButtons.push([`📂 ${deck.name}`]);
+  }
+
+  deckButtons.push(['⬅️ Asosiy Menyuga Qaytish']);
+
+  await ctx.reply(
+    message + 'Boshqarish uchun deckni tanlang:',
+    Markup.keyboard(deckButtons).resize()
+  );
+
+  const session = this.getSession(telegramId);
+  session.step = 'browsing_decks';
+ }
+
   /**
    * Handle deck management in browse mode
    */
   async handleBrowseDeck(ctx: Context, deckName: string): Promise<void> {
+    console.log('handleBrowseDeck called with deckName:', deckName);
     const telegramId = ctx.from!.id;
     const decks = await this.deckService.findByTelegramId(telegramId);
     const deck = decks.find(d => d.name === deckName);
@@ -152,14 +197,12 @@ export class BotService {
   async handleViewCards(ctx: Context): Promise<void> {
     const telegramId = ctx.from!.id;
     const session = this.getSession(telegramId);
-
     if (!session.editingDeck) {
       await ctx.reply('❌ No deck selected!');
       return;
     }
 
-    const cards = await this.cardService.findByDeckId(session.editingDeck);
-
+    const cards = await this.cardService.findByDeckId(new Types.ObjectId(session.editingDeck));
     if (cards.length === 0) {
       await ctx.reply(
         '📭 This deck has no cards yet!\nAdd some cards to get started.',
@@ -201,7 +244,7 @@ export class BotService {
       return;
     }
 
-    const cards = await this.cardService.findByDeckId(session.editingDeck);
+    const cards = await this.cardService.findByDeckId(new Types.ObjectId(session.editingDeck));
     const card = cards[cardIndex];
 
     if (!card) {
@@ -624,7 +667,7 @@ export class BotService {
 
     try {
       // Delete all cards in the deck first
-      const cards = await this.cardService.findByDeckId(session.editingDeck);
+      const cards = await this.cardService.findByDeckId(new Types.ObjectId(session.editingDeck));
       for (const card of cards) {
         await this.cardService.delete((card as any)._id.toString());
       }
@@ -932,49 +975,5 @@ export class BotService {
     session.currentCardIndex = (session.currentCardIndex || 0) + 1;
     
     setTimeout(() => this.showCurrentCard(ctx), 1500);
-  }
-
-  /**
-   * Handle Browse menu
-   */
- async handleBrowse(ctx: Context): Promise<void> {
-    const telegramId = ctx.from!.id;
-    const decks = await this.deckService.findByTelegramId(telegramId);
-    this.clearSession(telegramId);
-
-    if (decks.length === 0) {
-      await ctx.reply(
-        '📚 Hali hech qanday deck yaratilmagan!\nBirinchi deckingizni yaratish uchun boshlang.',
-        this.getMainMenuKeyboard()
-      );
-      return;
-    }
-
-    // Deck tugmalarini yaratish
-    const deckButtons: string[][] = [];
-    let message = '🔍 Mavjud Decklar:\n\n';
-
-    // Har bir deck uchun ma'lumot va tugma yaratish
-    for (let i = 0; i < decks.length; i++) {
-      const deck = decks[i];
-      const stats = await this.cardService.getCardStats((deck as any)._id.toString());
-      
-      message += `${i + 1}. 📂 ${deck.name}\n`;
-      message += `   📊 Kartalar: ${stats.total}\n`;
-      message += `   🆕 Yangi: ${stats.new} | 📚 O'rganilayotgan: ${stats.learning}\n`;
-      message += `   🎯 Yosh: ${stats.young} | ⭐ Pishgan: ${stats.mature}\n\n`;
-      
-      deckButtons.push([`📂 ${deck.name}`]);
-    }
-
-    deckButtons.push(['⬅️ Asosiy Menyuga Qaytish']);
-
-    await ctx.reply(
-      message + 'Boshqarish uchun deckni tanlang:',
-      Markup.keyboard(deckButtons).resize()
-    );
-
-    const session = this.getSession(telegramId);
-    session.step = 'browsing_decks';
   }
 }
